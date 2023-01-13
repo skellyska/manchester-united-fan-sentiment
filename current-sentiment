@@ -1,0 +1,51 @@
+import pandas as pd
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from textblob import TextBlob
+
+# Replace with your own API key
+api_key = "AIzaSyAUKx9c4CZuYpEWJBg2C-4ukv3OrI_qw9g"
+
+# Create a youtube client
+youtube = build('youtube', 'v3', developerKey=api_key)
+
+# Search for videos about Manchester United
+request = youtube.search().list(
+    part='snippet',
+    q='Manchester United',
+    type='video',
+    videoDefinition='high',
+    maxResults=500
+)
+response = request.execute()
+
+# Create a list to store the comments and their sentiment
+comments_list = []
+
+# Loop through the videos and get the comments
+for video in response['items']:
+    video_id = video['id']['videoId']
+    request = youtube.commentThreads().list(
+        part='snippet',
+        videoId=video_id,
+        maxResults=100
+    )
+    comments = request.execute()
+
+    # Analyze the sentiment of each comment
+    for comment in comments['items']:
+        text = comment['snippet']['topLevelComment']['snippet']['textDisplay']
+        sentiment = TextBlob(text).sentiment.polarity
+        comments_list.append([text, sentiment])
+
+# Convert the list to a DataFrame
+comments_df = pd.DataFrame(comments_list, columns=['text', 'sentiment'])
+
+# Print the overall sentiment of the comments
+print(f'Overall sentiment: {comments_df["sentiment"].mean()}')
+
+# Group the comments by sentiment and print the count for each group
+print(comments_df.groupby(['sentiment']).count())
+
+# Save the comments data to a csv file
+comments_df.to_csv("man_utd_comments.csv")
